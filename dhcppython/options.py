@@ -50,7 +50,7 @@ b'=\x07\x01\x8cE\x00\x1dH\x16'
 ClientIdentifier(code=61, length=7, data=b'\x01\x8cE\x00\x1dH\x16')
 ```
 """
-from __future__ import annotations
+#from __future__ import annotations
 import csv
 from abc import ABC, abstractmethod
 import collections.abc
@@ -58,13 +58,13 @@ from typing import Dict, Union, List, Tuple, Optional
 import ipaddress
 import struct
 import json
-import importlib.resources
+import importlib_resources
 from .exceptions import DHCPValueError
 from . import runtime_assets
 
 
 try:
-    options_csv = csv.reader(importlib.resources.open_text(runtime_assets, "options.csv"))
+    options_csv = csv.reader(importlib_resources.open_text(runtime_assets, "options.csv"))
 except:
     options_csv = []
 
@@ -78,149 +78,6 @@ OPTIONS: Dict[int, Dict[str, Union[str, int]]] = {
     for line in options_csv
     if line[0].isdigit()
 }
-
-
-class OptionList(collections.abc.MutableSequence):
-    def __init__(self, options_array: Optional[List[Option]] = None):
-        self.data: List[Option] = list(options_array) if options_array else []
-        self.code_to_data: Dict[int, int] = {
-            opt.code: {"obj": opt, "index": i} for i, opt in enumerate(self.data)
-        }
-
-    def __repr__(self):
-        return f"OptionList({self.data})"
-
-    def by_code(self, code: int) -> Optional[Option]:
-        return self.code_to_data.get(code, {}).get("obj")
-
-    def append(self, item: Option):
-        if item.code not in self.code_to_data:
-            self.data.append(item)
-            self.code_to_data[item.code] = {"obj": item, "index": len(self.data) - 1}
-        else:
-            self.data[self.code_to_data[item.code]["index"]] = item
-            self.code_to_data[item.code]["obj"] = item
-
-    def insert(self, index: int, obj: Option):
-        if obj.code in self.code_to_data:
-            # delete previous object and insert this one at the specified pos
-            del self[self.code_to_data[obj.code]["index"]]
-
-        self.data.insert(index, obj)
-
-        # Re-index entire list...
-        for opt in self.code_to_data.values():
-            if opt["index"] >= index:
-                opt["index"] += 1
-
-        self.code_to_data[obj.code] = {
-            "obj": obj,
-            "index": index,
-        }
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, key: int) -> Option:
-        return self.data[key]
-
-    def __setitem__(self, key: int, value: Option):
-        # Remove entry of option in current index
-        for opt in self.code_to_data.values():
-            if opt["index"] == key:
-                del self.code_to_data[opt["obj"].code]
-                break
-        # update self.data list with object
-        self.data[key] = value
-        # reindex the object that is in the list
-        self.code_to_data[value.code] = {
-            "obj": value,
-            "index": key,
-        }
-        for index, opt in enumerate(self.data):
-            if opt.code == value.code and index != key:
-                del self[index]
-                if index < key:
-                    self.code_to_data[value.code] = {
-                        "obj": value,
-                        "index": key,
-                    }
-                    break
-
-    def __delitem__(self, key: int):
-        code = self.data[key].code
-        # problematic cause it reindexes the whole list
-        for opt in self.code_to_data.values():
-            if opt["index"] > key:
-                opt["index"] -= 1
-        del self.code_to_data[code]
-        del self.data[key]
-
-    def __contains__(self, other):
-        if hasattr(other, "asbytes"):
-            return other in self.data
-        return other in self.code_to_data
-
-    def __eq__(self, other):
-        for self_item, other_item in zip(self, other):
-            if not (self_item == other_item):
-                return False
-        return True
-
-    def as_dict(self):
-        opt_dict = {}
-        for opt in self.data:
-            opt_dict.update(opt.value)
-        return opt_dict
-
-    @property
-    def json(self):
-        return json.dumps(self.as_dict(), indent=4)
-
-
-class OptionDirectory(object):
-    def __init__(self):
-        self.directory = {}
-        self.key_code_map = {}
-        temp = dict(globals())
-        for obj in temp:
-            try:
-                cls = globals()[obj]
-                code = cls.__dict__["code"]
-                key = cls.__dict__["key"]
-            except:
-                pass
-            else:
-                self.directory[code] = cls
-                self.key_code_map[key] = code
-
-    def value_to_code(self, value: dict) -> int:
-        code = self.key_code_map.get(list(value)[0])
-        return code
-
-    def code_to_class(self, code: int) -> Option:
-        return self.directory.get(code, UnknownOption)
-
-    def value_to_bytes(self, value: dict):
-        code = self.value_to_code(value)
-        return self.code_to_class(code).from_value(value).asbytes
-
-    def value_to_object(self, value: dict):
-        code = self.value_to_code(value)
-        return self.code_to_class(code).from_value(value)
-
-    def short_value_to_object(
-        self, code: int, short_value: Union[str, int, bool, dict, List[int], List[str]]
-    ):
-        cls = self.code_to_class(code)
-        return cls.from_value({cls.key: short_value})
-
-    def bytes_to_object(self, data: bytes):
-        if data[0] in [0, 255]:
-            code, length, data = (data[0], 0, b"")
-        else:
-            code, length, data = struct.unpack(f">BB{len(data) - 2}s", data)
-        return self.code_to_class(code)(code, length, data)
 
 
 class Option(ABC):
@@ -398,6 +255,149 @@ class Option(ABC):
         return struct.pack(
             ">" + "B" * len(value.split()), *[int(val[2:], 16) for val in value.split()]
         )
+
+
+class OptionList(collections.abc.MutableSequence):
+    def __init__(self, options_array: Optional[List[Option]] = None):
+        self.data: List[Option] = list(options_array) if options_array else []
+        self.code_to_data: Dict[int, int] = {
+            opt.code: {"obj": opt, "index": i} for i, opt in enumerate(self.data)
+        }
+
+    def __repr__(self):
+        return f"OptionList({self.data})"
+
+    def by_code(self, code: int) -> Optional[Option]:
+        return self.code_to_data.get(code, {}).get("obj")
+
+    def append(self, item: Option):
+        if item.code not in self.code_to_data:
+            self.data.append(item)
+            self.code_to_data[item.code] = {"obj": item, "index": len(self.data) - 1}
+        else:
+            self.data[self.code_to_data[item.code]["index"]] = item
+            self.code_to_data[item.code]["obj"] = item
+
+    def insert(self, index: int, obj: Option):
+        if obj.code in self.code_to_data:
+            # delete previous object and insert this one at the specified pos
+            del self[self.code_to_data[obj.code]["index"]]
+
+        self.data.insert(index, obj)
+
+        # Re-index entire list...
+        for opt in self.code_to_data.values():
+            if opt["index"] >= index:
+                opt["index"] += 1
+
+        self.code_to_data[obj.code] = {
+            "obj": obj,
+            "index": index,
+        }
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, key: int) -> Option:
+        return self.data[key]
+
+    def __setitem__(self, key: int, value: Option):
+        # Remove entry of option in current index
+        for opt in self.code_to_data.values():
+            if opt["index"] == key:
+                del self.code_to_data[opt["obj"].code]
+                break
+        # update self.data list with object
+        self.data[key] = value
+        # reindex the object that is in the list
+        self.code_to_data[value.code] = {
+            "obj": value,
+            "index": key,
+        }
+        for index, opt in enumerate(self.data):
+            if opt.code == value.code and index != key:
+                del self[index]
+                if index < key:
+                    self.code_to_data[value.code] = {
+                        "obj": value,
+                        "index": key,
+                    }
+                    break
+
+    def __delitem__(self, key: int):
+        code = self.data[key].code
+        # problematic cause it reindexes the whole list
+        for opt in self.code_to_data.values():
+            if opt["index"] > key:
+                opt["index"] -= 1
+        del self.code_to_data[code]
+        del self.data[key]
+
+    def __contains__(self, other):
+        if hasattr(other, "asbytes"):
+            return other in self.data
+        return other in self.code_to_data
+
+    def __eq__(self, other):
+        for self_item, other_item in zip(self, other):
+            if not (self_item == other_item):
+                return False
+        return True
+
+    def as_dict(self):
+        opt_dict = {}
+        for opt in self.data:
+            opt_dict.update(opt.value)
+        return opt_dict
+
+    @property
+    def json(self):
+        return json.dumps(self.as_dict(), indent=4)
+
+
+class OptionDirectory(object):
+    def __init__(self):
+        self.directory = {}
+        self.key_code_map = {}
+        temp = dict(globals())
+        for obj in temp:
+            try:
+                cls = globals()[obj]
+                code = cls.__dict__["code"]
+                key = cls.__dict__["key"]
+            except:
+                pass
+            else:
+                self.directory[code] = cls
+                self.key_code_map[key] = code
+
+    def value_to_code(self, value: dict) -> int:
+        code = self.key_code_map.get(list(value)[0])
+        return code
+
+    def code_to_class(self, code: int) -> Option:
+        return self.directory.get(code, UnknownOption)
+
+    def value_to_bytes(self, value: dict):
+        code = self.value_to_code(value)
+        return self.code_to_class(code).from_value(value).asbytes
+
+    def value_to_object(self, value: dict):
+        code = self.value_to_code(value)
+        return self.code_to_class(code).from_value(value)
+
+    def short_value_to_object(
+        self, code: int, short_value: Union[str, int, bool, dict, List[int], List[str]]
+    ):
+        cls = self.code_to_class(code)
+        return cls.from_value({cls.key: short_value})
+
+    def bytes_to_object(self, data: bytes):
+        if data[0] in [0, 255]:
+            code, length, data = (data[0], 0, b"")
+        else:
+            code, length, data = struct.unpack(f">BB{len(data) - 2}s", data)
+        return self.code_to_class(code)(code, length, data)
 
 
 class BinOption(Option):

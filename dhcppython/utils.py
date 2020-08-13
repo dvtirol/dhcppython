@@ -4,7 +4,7 @@ import datetime
 import socket
 import unicodedata
 from typing import Dict
-import importlib.resources
+import importlib_resources
 from . import runtime_assets
 
 
@@ -64,7 +64,7 @@ def is_mac_addr(mac_addr: str) -> bool:
     return True
 
 try:
-    oui_lines = importlib.resources.read_text(runtime_assets, "oui.txt").split("\n")
+    oui_lines = importlib_resources.read_text(runtime_assets, "oui.txt").split("\n")
 except:
     oui_lines = []
 mac_vendor_map: Dict[str, str] = {

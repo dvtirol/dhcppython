@@ -14,11 +14,11 @@ DESCRIPTION = 'Package for working with DHCP packets - including a DHCP client',
 URL = 'https://github.com/vfrazao-ns1/dhcppython'
 EMAIL = ''
 AUTHOR = 'Victor Frazao'
-REQUIRES_PYTHON = '>=3.7.0'
+REQUIRES_PYTHON = '>=3.6.0'
 VERSION = '0.1.2'
 
 # What packages are required for this module to be executed?
-REQUIRED = []
+REQUIRED = ["importlib-resources", "dataclasses"]
 
 # What packages are optional?
 EXTRAS = {}
@@ -99,7 +99,7 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: Implementation :: CPython',
     ],
     # $ setup.py publish support.
